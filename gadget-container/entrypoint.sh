@@ -36,15 +36,29 @@ echo "-:pfree_uts_ns" >> /sys/kernel/debug/tracing/kprobe_events 2>/dev/null || 
 echo "-:pcap_capable" >> /sys/kernel/debug/tracing/kprobe_events 2>/dev/null || true
 
 ARGS=k8s
+
+CRIO=0
+if grep -q '^1:name=systemd:.*/crio-[0-9a-f]*\.scope$' /proc/self/cgroup > /dev/null ; then
+    echo "CRI-O detected."
+    CRIO=1
+fi
+
 FLATCAR_EDGE=0
 if grep -q '^ID=flatcar$' /host/etc/os-release > /dev/null ; then
   if grep -q '^GROUP=edge$' /host/etc/flatcar/update.conf > /dev/null ; then
+    echo "Flatcar Edge detected."
     FLATCAR_EDGE=1
   fi
 fi
 
-if [ "$FLATCAR_EDGE" = 1 ] ; then
-  echo "Flatcar Edge detected."
+if [ "$INSPEKTOR_GADGET_OPTION_RUNC_HOOKS" = "auto" ] && [ "$CRIO" = 1 ] ; then
+  echo "Installing OCI hooks in /etc/containers/oci/hooks.d/"
+  mkdir -p /host/etc/containers/oci/hooks.d/
+  cp /opt/crio-hooks/gadget-prestart.json /host/etc/containers/oci/hooks.d/gadget-prestart.json
+  cp /opt/crio-hooks/gadget-poststop.json /host/etc/containers/oci/hooks.d/gadget-poststop.json
+fi
+
+if [ "$FLATCAR_EDGE" = 1 ] || [ "$CRIO" = 1 ] || [ "$INSPEKTOR_GADGET_OPTION_RUNC_HOOKS" = "ldpreload" ] ; then
   echo "Installing scripts on host..."
 
   CGROUP_V1_PATH=$(cat /proc/1/cgroup |grep ^1:|cut -d: -f3)
