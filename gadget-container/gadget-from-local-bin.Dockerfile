@@ -1,12 +1,12 @@
 # Main gadget image
 
 # BCC built from:
-# https://github.com/kinvolk/bcc/commit/635b4ad080422a6b53e16c69a04be42d21c14043
+# https://github.com/kinvolk/bcc/commit/8de5fed9fb4b770d5dad483b6ab09df7e21fb6db
 # See:
 # - https://github.com/kinvolk/bcc/actions
 # - https://hub.docker.com/repository/docker/kinvolk/bcc/tags
 
-FROM docker.io/kinvolk/bcc:20200512141007635b4a
+FROM docker.io/kinvolk/bcc:202005121923438de5fe
 
 RUN set -ex; \
 	export DEBIAN_FRONTEND=noninteractive; \
