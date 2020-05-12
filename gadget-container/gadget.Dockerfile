@@ -1,12 +1,12 @@
 # Builder: traceloop
 
 # traceloop built from:
-# https://github.com/kinvolk/traceloop/commit/b02325929a835060df5cf82e37389edf87421a39
+# https://github.com/kinvolk/traceloop/commit/20fdf3194e5ba62da0599443ebf24c28bd51bbb5
 # See:
 # - https://github.com/kinvolk/traceloop/actions
 # - https://hub.docker.com/repository/docker/kinvolk/traceloop/tags
 
-FROM docker.io/kinvolk/traceloop:20200511163751b02325 as traceloop
+FROM docker.io/kinvolk/traceloop:2020051210515120fdf3 as traceloop
 
 # Main gadget image
 
