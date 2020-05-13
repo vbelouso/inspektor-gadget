@@ -48,39 +48,36 @@ if grep -q '^ID=flatcar$' /host/etc/os-release > /dev/null ; then
   if grep -q '^GROUP=edge$' /host/etc/flatcar/update.conf > /dev/null ; then
     echo "Flatcar Edge detected."
     FLATCAR_EDGE=1
+
+    CGROUP_V1_PATH=$(cat /proc/1/cgroup |grep ^1:|cut -d: -f3)
+    CGROUP_V2_PATH=$(cat /proc/1/cgroup |grep ^0:|cut -d: -f3)
+    if [ $CGROUP_V1_PATH != $CGROUP_V2_PATH ] ; then
+      echo "cgroup-v2 is not correctly enabled on Kubernetes pods" >&2
+      exit 1
+    fi
   fi
 fi
 
-if [ "$INSPEKTOR_GADGET_OPTION_RUNC_HOOKS" = "auto" ] && [ "$CRIO" = 1 ] ; then
+# Choose what runc hook mode to use based on the configuration detected
+RUNC_HOOK_MODE="$INSPEKTOR_GADGET_OPTION_RUNC_HOOKS"
+
+if [ "$RUNC_HOOK_MODE" = "auto" ] ; then
+  if [ "$CRIO" = 1 ] ; then
+    RUNC_HOOK_MODE="crio"
+  elif [ "$FLATCAR_EDGE" = 1 ] ; then
+    RUNC_HOOK_MODE="flatcar_edge"
+  else
+    RUNC_HOOK_MODE="error"
+    echo "Error detecting runc hook mode."
+  fi
+fi
+
+if [ "$RUNC_HOOK_MODE" = "crio" ] ; then
   echo "Installing OCI hooks in /etc/containers/oci/hooks.d/"
   mkdir -p /host/etc/containers/oci/hooks.d/
   cp /opt/crio-hooks/gadget-prestart.json /host/etc/containers/oci/hooks.d/gadget-prestart.json
   cp /opt/crio-hooks/gadget-poststop.json /host/etc/containers/oci/hooks.d/gadget-poststop.json
-fi
-
-if [ "$FLATCAR_EDGE" = 1 ] || [ "$CRIO" = 1 ] || [ "$INSPEKTOR_GADGET_OPTION_RUNC_HOOKS" = "ldpreload" ] ; then
-  echo "Installing scripts on host..."
-
-  CGROUP_V1_PATH=$(cat /proc/1/cgroup |grep ^1:|cut -d: -f3)
-  CGROUP_V2_PATH=$(cat /proc/1/cgroup |grep ^0:|cut -d: -f3)
-  if [ $CGROUP_V1_PATH != $CGROUP_V2_PATH ] ; then
-    echo "cgroup-v2 is not correctly enabled on Kubernetes pods" >&2
-    exit 1
-  fi
-
-  mkdir -p /host/opt/bin/
-  for i in ocihookgadget runc-hook-prestart.sh runc-hook-poststop.sh ; do
-    echo "Installing $i..."
-    cp /bin/$i /host/opt/bin/
-  done
-  echo "Installation done "
-
-  echo "Starting the Gadget Tracer Manager in the background..."
-  rm -f /run/gadgettracermanager.socket
-  /bin/gadgettracermanager -serve &
-fi
-
-if [ "$INSPEKTOR_GADGET_OPTION_RUNC_HOOKS" = "ldpreload" ] ; then
+elif [ "$RUNC_HOOK_MODE" = "ldpreload" ] ; then
   echo "Installing ld.so.preload with runchooks.so for OCI hooks"
   mkdir -p /host/opt/runchooks/
   cp /opt/runchooks/runchooks.so /host/opt/runchooks/
@@ -92,6 +89,23 @@ if [ "$INSPEKTOR_GADGET_OPTION_RUNC_HOOKS" = "ldpreload" ] ; then
     echo "/opt/runchooks/runchooks.so" >> /host/etc/ld.so.preload
   fi
 fi
+
+if [ "$RUNC_HOOK_MODE" = "flatcar_edge" ] ||
+   [ "$RUNC_HOOK_MODE" = "crio" ] ||
+   [ "$RUNC_HOOK_MODE" = "ldpreload" ] ; then
+  echo "Installing OCI hook scripts on host..."
+
+  mkdir -p /host/opt/bin/
+  for i in ocihookgadget runc-hook-prestart.sh runc-hook-poststop.sh ; do
+    echo "Installing $i..."
+    cp /bin/$i /host/opt/bin/
+  done
+  echo "Installation done "
+fi
+
+echo "Starting the Gadget Tracer Manager in the background..."
+rm -f /run/gadgettracermanager.socket
+/bin/gadgettracermanager -serve &
 
 if [ "$INSPEKTOR_GADGET_OPTION_TRACELOOP" = "true" ] ; then
   rm -f /run/traceloop.socket

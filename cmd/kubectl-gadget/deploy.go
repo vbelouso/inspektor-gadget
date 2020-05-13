@@ -19,9 +19,9 @@ var deployCmd = &cobra.Command{
 var gadgetimage = "undefined"
 
 var (
-	image     string
-	traceloop bool
-	runcHooks string
+	image         string
+	traceloop     bool
+	runcHooksMode string
 )
 
 func init() {
@@ -36,10 +36,10 @@ func init() {
 		true,
 		"enable the traceloop gadget")
 	deployCmd.PersistentFlags().StringVarP(
-		&runcHooks,
-		"runc-hooks", "",
+		&runcHooksMode,
+		"runc-hooks-mode", "",
 		"auto",
-		"how to attach runc hooks (auto, ldpreload)")
+		"how to attach runc hooks (auto, ldpreload, flatcar_edge, crio)")
 
 	rootCmd.AddCommand(deployCmd)
 }
@@ -176,8 +176,9 @@ type parameters struct {
 }
 
 func runDeploy(cmd *cobra.Command, args []string) error {
-	if runcHooks != "auto" && runcHooks != "ldpreload" {
-		return fmt.Errorf("invalid argument %q for --runc-hooks=[auto,ldpreload]", runcHooks)
+	if runcHooksMode != "auto" && runcHooksMode != "crio" &&
+		runcHooksMode != "flatcar_edge" && runcHooksMode != "ldpreload" {
+		return fmt.Errorf("invalid argument %q for --runc-hooks=[auto,crio,flatcar_edge,ldpreload]", runcHooksMode)
 	}
 
 	t, err := template.New("deploy.yaml").Parse(deployYamlTmpl)
@@ -189,7 +190,7 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 		image,
 		version,
 		traceloop,
-		runcHooks,
+		runcHooksMode,
 	}
 
 	err = t.Execute(os.Stdout, p)
