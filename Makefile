@@ -19,12 +19,14 @@ build: build-ig build-gadget-container
 .PHONY: build-ig
 build-ig: kubectl-gadget-linux-amd64 kubectl-gadget-darwin-amd64
 
+.PHONY: kubectl-gadget-linux-amd64
 kubectl-gadget-linux-amd64:
 	GO111MODULE=on CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 		-ldflags $(LDFLAGS) \
 		-o kubectl-gadget-linux-amd64 \
 		github.com/kinvolk/inspektor-gadget/cmd/kubectl-gadget
 
+.PHONY: kubectl-gadget-darwin-amd64
 kubectl-gadget-darwin-amd64:
 	GO111MODULE=on CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build \
 		-ldflags $(LDFLAGS) \
