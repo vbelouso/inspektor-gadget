@@ -109,10 +109,14 @@ if [ "$RUNC_HOOK_MODE" = "flatcar_edge" ] ||
    [ "$RUNC_HOOK_MODE" = "ldpreload" ] ; then
   echo "Installing hooks scripts on host..."
 
+  KUBECONFIG_PARAM=`ps aux | grep kubelet | grep -Eo '\-kubeconfig=.[^ ]+' | head -1`
+
   mkdir -p /host/opt/bin/
   for i in ocihookgadget runc-hook-prestart.sh runc-hook-poststop.sh ; do
     echo "Installing $i..."
-    cp /bin/$i /host/opt/bin/
+    #cp /bin/$i /host/opt/bin/
+    sed s@%KUBECONFIG%@$KUBECONFIG_PARAM@g /bin/$i > /host/opt/bin/$i
+    chmod +x /host/opt/bin/$i
   done
 
   if [ "$RUNC_HOOK_MODE" = "crio" ] ; then

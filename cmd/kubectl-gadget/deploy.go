@@ -64,19 +64,6 @@ roleRef:
   name: cluster-admin
   apiGroup: rbac.authorization.k8s.io
 ---
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: gadget-oci-hook
-subjects:
-- kind: ServiceAccount
-  name: node-bootstrapper
-  namespace: openshift-machine-config-operator
-roleRef:
-  kind: ClusterRole
-  name: view
-  apiGroup: rbac.authorization.k8s.io
----
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
