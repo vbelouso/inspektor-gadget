@@ -117,7 +117,7 @@ jobs:
       with:
         tag_name: ${{ github.ref }}
         release_name: Release ${{ github.ref }}
-        draft: true
+        draft: false
         prerelease: false
 
     - name: Upload linux-amd64 Release Asset
@@ -163,3 +163,7 @@ jobs:
         IMAGE_TAG: ${{ steps.publish-registry.outputs.snapshot-tag }}
       run: |
         make -C integration push
+
+    - name: Update new version in krew-index
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: rajatjindal/krew-release-bot@v0.0.38
