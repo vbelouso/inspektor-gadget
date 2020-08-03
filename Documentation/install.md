@@ -1,5 +1,18 @@
 # Installation
 
+<!-- toc -->
+- [Installing kubectl-gadget](#installing-kubectl-gadget)
+  - [Using krew](#using-krew)
+  - [Install a specific release](#install-a-specific-release)
+  - [Download from Github Actions artifacts](#download-from-github-actions-artifacts)
+  - [Compile from the sources](#compile-from-the-sources)
+- [Installing in the cluster](#installing-in-the-cluster)
+  - [Quick installation](#quick-installation)
+  - [runc hooks mode](#runc-hooks-mode)
+  - [Specific Information for Different Platforms](#specific-information-for-different-platforms)
+    - [Minikube](#minikube)
+<!-- /toc -->
+
 Inspektor Gadget is composed by a `kubectl` plugin executed in the user's
 system and a DaemonSet deployed in the cluster.
 
@@ -85,3 +98,32 @@ The different supported modes can be set by using the `runc-hooks-mode` option:
 - `flatcar_edge`: Use a custom `runc` version shipped with Flatcar Container Linux Edge.
 - `podinformer`: Use a K8s controller to get information about new pods. This option is racy and the first events produced by a container could be lost. This mode is selected when `auto` is used and the above modes are not available.
 - `ldpreload`: Adds an entry in `/etc/ld.so.preload` to call a custom shared library that looks for `runc` calls and dynamically adds the needed OCI hooks to the cointainer `config.json` specification. Since this feature is highly experimental, it'll not be considered when `auto` is used.
+
+### Specific Information for Different Platforms
+
+This section explains the additional steps that are required to run Inspektor Gadget in some platforms.
+
+#### Minikube
+
+To deploy Inspektor Gadget in Minikube it's needed to install the kernel headers manually before this [issue](https://github.com/kubernetes/minikube/issues/8556) is solved.
+
+```
+# Docker driver is not supported, use a VM driver like kvm2
+minikube config set driver kvm2
+
+# Set this memory to be able to extract kernel headers without errors
+minikube config set memory 4096
+
+# Use a special minikube iso
+minikube config set iso-url https://storage.googleapis.com/minikube-performance/minikube.iso
+
+minikube start
+
+# Download and extract kernel headers
+minikube ssh -- curl -Lo /tmp/kernel-headers-linux-4.19.94.tar.lz4 https://storage.googleapis.com/minikube-kernel-headers/kernel-headers-linux-4.19.94.tar.lz4
+minikube ssh -- sudo mkdir -p /lib/modules/4.19.94/build
+minikube ssh -- sudo tar -I lz4 -C /lib/modules/4.19.94/build -xvf /tmp/kernel-headers-linux-4.19.94.tar.lz4
+minikube ssh -- rm /tmp/kernel-headers-linux-4.19.94.tar.lz4
+
+# Deploy Inspektor Gadget in the cluster as described above
+```
