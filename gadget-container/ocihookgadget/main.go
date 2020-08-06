@@ -1,26 +1,19 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"path/filepath"
-	"regexp"
-	"strconv"
-	"strings"
 	"time"
-
-	ocispec "github.com/opencontainers/runtime-spec/specs-go"
 
 	"google.golang.org/grpc"
 
 	pb "github.com/kinvolk/inspektor-gadget/pkg/gadgettracermanager/api"
 	"github.com/kinvolk/inspektor-gadget/pkg/gadgettracermanager/containerutils"
+
+	"github.com/containerd/nri/skel"
+	types "github.com/containerd/nri/types/v1"
 )
 
 var (
@@ -33,32 +26,45 @@ func init() {
 	flag.StringVar(&hook, "hook", "", "OCI hook: prestart or poststop")
 }
 
+type igHook struct {
+}
+
+func (i *igHook) Type() string {
+	return "ighook"
+}
+
+func (i *igHook) Invoke(ctx context.Context, r *types.Request) (*types.Result, error) {
+	// TODO: Why the sandbox is leaked during delete (it's never deleted from the
+	// gadgettracermanager)
+	if !r.IsSandbox() {
+		switch r.State {
+		case types.Create:
+			hook = "prestart"
+			processContainer(r.ID, r.Pid)
+		case types.Delete:
+			hook = "poststop"
+			processContainer(r.ID, r.Pid)
+		}
+	}
+
+	result := r.NewResult("ighook")
+	return result, nil
+}
+
 func main() {
-	// Parse arguments
-	flag.Parse()
-	if flag.NArg() > 0 {
-		flag.PrintDefaults()
-		panic(fmt.Errorf("invalid command"))
+	ctx := context.Background()
+	if err := skel.Run(ctx, &igHook{}); err != nil {
+		fmt.Fprintf(os.Stderr, "Error executing ighook: %v", err)
+		// don't return an error as it's a debug tool and we don't want to
+		// create extra trouble if there is a failure.
+		os.Exit(0)
 	}
+}
 
-	if hook != "prestart" && hook != "poststop" {
-		panic(fmt.Errorf("hook %q not supported\n", hook))
-	}
-
-	// Parse state from stdin
-	stateBuf, err := ioutil.ReadAll(os.Stdin)
-	if err != nil {
-		panic(fmt.Errorf("cannot read stdin: %v\n", err))
-	}
-
-	ociStateID, ociStatePid, err := containerutils.ParseOCIState(stateBuf)
-	if err != nil {
-		panic(fmt.Errorf("cannot parse stdin: %v\n%s\n", err, string(stateBuf)))
-	}
-
+func processContainer(ociStateID string, ociStatePid int) error {
 	// Validate state
 	if ociStateID == "" || (ociStatePid == 0 && hook == "prestart") {
-		panic(fmt.Errorf("invalid OCI state: %v %v", ociStateID, ociStatePid))
+		return fmt.Errorf("invalid OCI state: %v %v", ociStateID, ociStatePid)
 	}
 
 	// Connect to the Gadget Tracer Manager
@@ -67,7 +73,7 @@ func main() {
 	var cancel context.CancelFunc
 	conn, err := grpc.Dial("unix://"+socketfile, grpc.WithInsecure())
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer conn.Close()
 	client = pb.NewGadgetTracerManagerClient(conn)
@@ -80,15 +86,16 @@ func main() {
 			ContainerId: ociStateID,
 		})
 		if err != nil {
-			panic(err)
+			return err
 		}
-		return
+		return nil
 	}
 
+	// TODO: NRI includes a cgroup path, can that be used?
 	// Get cgroup paths
 	cgroupPathV1, cgroupPathV2, err := containerutils.GetCgroupPaths(ociStatePid)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	cgroupPathV2WithMountpoint, _ := containerutils.CgroupPathV2AddMountpoint(cgroupPathV2)
 
@@ -98,58 +105,12 @@ func main() {
 	// Get mount namespace ino
 	mntns, err := containerutils.GetMntNs(ociStatePid)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	// Get bundle directory and OCI spec (config.json)
-	ppid := 0
-	if statusFile, err := os.Open(filepath.Join("/proc", fmt.Sprintf("%d", ociStatePid), "status")); err == nil {
-		defer statusFile.Close()
-		reader := bufio.NewReader(statusFile)
-		for {
-			line, err := reader.ReadString('\n')
-			if err != nil {
-				break
-			}
-			if strings.HasPrefix(line, "PPid:\t") {
-				ppidStr := strings.TrimPrefix(line, "PPid:\t")
-				ppidStr = strings.TrimSuffix(ppidStr, "\n")
-				ppid, err = strconv.Atoi(ppidStr)
-				if err != nil {
-					panic(fmt.Errorf("cannot parse ppid (%q): %v", ppidStr, err))
-				}
-				break
-			}
-		}
-	} else {
-		panic(fmt.Errorf("cannot parse /proc/PID/status: %v", err))
-	}
-	cmdline, err := ioutil.ReadFile(filepath.Join("/proc", fmt.Sprintf("%d", ppid), "cmdline"))
-	if err != nil {
-		panic(fmt.Errorf("cannot read /proc/PID/cmdline: %v", err))
-	}
-	cmdline = bytes.ReplaceAll(cmdline, []byte{0}, []byte("\n"))
-	r := regexp.MustCompile("--bundle\n([^\n]*)\n")
-	matches := r.FindStringSubmatch(string(cmdline))
-	if len(matches) != 2 {
-		panic(fmt.Errorf("cannot find bundle in %q: matches=%+v", string(cmdline), matches))
-	}
-	bundle := matches[1]
-	bundleConfig, err := ioutil.ReadFile(filepath.Join(bundle, "config.json"))
-	if err != nil {
-		panic(fmt.Errorf("cannot read config.json from bundle directory %q: %v", bundle, err))
-	}
-
-	ociSpec := &ocispec.Spec{}
-	err = json.Unmarshal(bundleConfig, ociSpec)
-	if err != nil {
-		panic(fmt.Errorf("cannot parse config.json: %v\n%s\n", err, string(bundleConfig)))
-	}
-
-	mountSources := []string{}
-	for _, m := range ociSpec.Mounts {
-		mountSources = append(mountSources, m.Source)
-	}
+	//TODO: MountSources is missing and it's used to get the container name.
+	// It seems that the NRI provides the container name directly under
+	// .spec.annotations.io.kubernetes.cri.container-name
 
 	_, err = client.AddContainer(ctx, &pb.ContainerDefinition{
 		ContainerId:    ociStateID,
@@ -158,9 +119,10 @@ func main() {
 		Mntns:          mntns,
 		CgroupV1:       cgroupPathV1,
 		CgroupV2:       cgroupPathV2,
-		MountSources:   mountSources,
+		//MountSources:   mountSources,
 	})
 	if err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
