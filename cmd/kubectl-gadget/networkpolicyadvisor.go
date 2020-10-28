@@ -44,6 +44,7 @@ var (
 	inputFileName  string
 	outputFileName string
 	namespaces     string
+	namespace      string
 )
 
 func init() {
@@ -58,6 +59,7 @@ func init() {
 	networkPolicyCmd.AddCommand(networkPolicyMonitorCmd)
 	networkPolicyMonitorCmd.PersistentFlags().StringVarP(&outputFileName, "output", "", "-", "File name output")
 	networkPolicyMonitorCmd.PersistentFlags().StringVarP(&namespaces, "namespaces", "", "default", "Comma-separated list of namespaces to monitor")
+	networkPolicyMonitorCmd.PersistentFlags().StringVarP(&namespace, "namespace", "ns", "gadget-tracing", "Namespace where gadget is deployed (gadget-tracing)")
 
 	networkPolicyCmd.AddCommand(networkPolicyReportCmd)
 	networkPolicyReportCmd.PersistentFlags().StringVarP(&inputFileName, "input", "", "-", "File name input")
@@ -134,7 +136,7 @@ func runNetworkPolicyMonitor(cmd *cobra.Command, args []string) {
 			collector := traceCollector{&m, w, nodeName}
 			cmd := fmt.Sprintf("exec /opt/bcck8s/bcc-wrapper.sh --tracerid networkpolicyadvisor --nomanager --probecleanup --gadget /bin/networkpolicyadvisor -- %s",
 				namespaceFilter)
-			err := execPod(client, nodeName, cmd, collector, os.Stderr)
+			err := execPod(client, nodeName, namespace, cmd, collector, os.Stderr)
 			if fmt.Sprintf("%s", err) != "command terminated with exit code 137" {
 				failure <- fmt.Sprintf("Error running command: %q\n", err)
 			}
@@ -149,7 +151,7 @@ func runNetworkPolicyMonitor(cmd *cobra.Command, args []string) {
 	}
 
 	for _, node := range nodes.Items {
-		_, _, err := execPodCapture(client, node.Name,
+		_, _, err := execPodCapture(client, node.Name, namespace,
 			fmt.Sprintf("exec /opt/bcck8s/bcc-wrapper.sh --tracerid networkpolicyadvisor --stop"))
 		if err != nil {
 			fmt.Printf("Error running command: %q\n", err)

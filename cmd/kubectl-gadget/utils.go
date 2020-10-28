@@ -19,8 +19,8 @@ import (
 	"github.com/kinvolk/inspektor-gadget/pkg/factory"
 )
 
-func execPodSimple(client *kubernetes.Clientset, node string, podCmd string) string {
-	stdout, stderr, err := execPodCapture(client, node, podCmd)
+func execPodSimple(client *kubernetes.Clientset, node string, namespace string, podCmd string) string {
+	stdout, stderr, err := execPodCapture(client, node, namespace, podCmd)
 	if err != nil {
 		return fmt.Sprintf("%s", err) + stdout + stderr
 	} else {
@@ -28,18 +28,18 @@ func execPodSimple(client *kubernetes.Clientset, node string, podCmd string) str
 	}
 }
 
-func execPodCapture(client *kubernetes.Clientset, node string, podCmd string) (string, string, error) {
+func execPodCapture(client *kubernetes.Clientset, node string, namespace string, podCmd string) (string, string, error) {
 	var stdout, stderr bytes.Buffer
-	err := execPod(client, node, podCmd, &stdout, &stderr)
+	err := execPod(client, node, namespace, podCmd, &stdout, &stderr)
 	return stdout.String(), stderr.String(), err
 }
 
-func execPod(client *kubernetes.Clientset, node string, podCmd string, cmdStdout io.Writer, cmdStderr io.Writer) error {
+func execPod(client *kubernetes.Clientset, node string, namespace string, podCmd string, cmdStdout io.Writer, cmdStderr io.Writer) error {
 	var listOptions = metaV1.ListOptions{
 		LabelSelector: "k8s-app=gadget",
 		FieldSelector: "spec.nodeName=" + node + ",status.phase=Running",
 	}
-	pods, err := client.CoreV1().Pods("kube-system").List(listOptions)
+	pods, err := client.CoreV1().Pods(namespace).List(listOptions)
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func execPod(client *kubernetes.Clientset, node string, podCmd string, cmdStdout
 	req := restClient.Post().
 		Resource("pods").
 		Name(podName).
-		Namespace("kube-system").
+		Namespace(namespace).
 		SubResource("exec").
 		Param("container", "gadget").
 		VersionedParams(&corev1.PodExecOptions{

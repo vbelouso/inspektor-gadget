@@ -236,6 +236,7 @@ func bccCmd(subCommand, bccScript string) func(*cobra.Command, []string) {
 			}
 		}
 
+                namespace := "gadget-tracing"
 		labelFilter := ""
 		if labelParam != "" {
 			pairs := strings.Split(labelParam, ",")
@@ -319,10 +320,10 @@ func bccCmd(subCommand, bccScript string) func(*cobra.Command, []string) {
 					tracerId, bccScript, labelFilter, namespaceFilter, podnameFilter, containernameFilter, gadgetParams)
 				var err error
 				if subCommand != "tcptop" {
-					err = execPod(client, nodeName, cmd,
+					err = execPod(client, nodeName, namespace, cmd,
 						postProcess.outStreams[index], postProcess.errStreams[index])
 				} else {
-					err = execPod(client, nodeName, cmd, os.Stdout, os.Stderr)
+					err = execPod(client, nodeName, namespace, cmd, os.Stdout, os.Stderr)
 				}
 				if fmt.Sprintf("%s", err) != "command terminated with exit code 137" {
 					failure <- fmt.Sprintf("Error running command: %v\n", err)
@@ -344,7 +345,7 @@ func bccCmd(subCommand, bccScript string) func(*cobra.Command, []string) {
 				continue
 			}
 			// ignore errors, there is nothing the user can do about it
-			execPodCapture(client, node.Name,
+			execPodCapture(client, node.Name, namespace,
 				fmt.Sprintf("exec /opt/bcck8s/bcc-wrapper.sh --tracerid %s --stop", tracerId))
 		}
 		fmt.Printf("\n")

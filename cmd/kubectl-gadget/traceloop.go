@@ -103,7 +103,7 @@ func getTracesListPerNode(client *kubernetes.Clientset) (out map[string][]tracem
 		LabelSelector: "k8s-app=gadget",
 		FieldSelector: fields.Everything().String(),
 	}
-	pods, err := client.CoreV1().Pods("kube-system").List(listOptions)
+	pods, err := client.CoreV1().Pods("gadget-tracing").List(listOptions)
 	if err != nil {
 		return nil, fmt.Errorf("Cannot find gadget pods: %q", err)
 	}
@@ -283,10 +283,12 @@ func runTraceloopShow(cmd *cobra.Command, args []string) {
 		contextLogger.Fatalf("Error in getting traces: %q", err)
 	}
 
+        namespace := "gadget-tracing"
+
 	for node, tm := range tracesPerNode {
 		for _, trace := range tm {
 			if trace.TraceID == args[0] {
-				fmt.Printf("%s", execPodSimple(client, node,
+				fmt.Printf("%s", execPodSimple(client, node, namespace,
 					fmt.Sprintf(`curl --silent --unix-socket /run/traceloop.socket 'http://localhost/dump-by-traceid?traceid=%s' ; echo`, args[0])))
 			}
 		}
@@ -323,7 +325,9 @@ func runTraceloopPod(cmd *cobra.Command, args []string) {
 		contextLogger.Fatalf("Pod %s not scheduled yet", podname)
 	}
 
-	fmt.Printf("%s", execPodSimple(client, pod.Spec.NodeName,
+        gadgetNamespace := "gadget-tracing"
+
+	fmt.Printf("%s", execPodSimple(client, pod.Spec.NodeName, gadgetNamespace,
 		fmt.Sprintf(`curl --silent --unix-socket /run/traceloop.socket 'http://localhost/dump-pod?namespace=%s&podname=%s&idx=%s' ; echo`,
 			namespace, podname, idx)))
 }
@@ -353,11 +357,13 @@ func runTraceloopClose(cmd *cobra.Command, args []string) {
 		contextLogger.Fatalf("Error in listing nodes: %q", err)
 	}
 
+        namespace := "gadget-tracing"
+
 	for _, node := range nodes.Items {
 		if !strings.HasPrefix(args[0], node.Status.Addresses[0].Address+"_") {
 			continue
 		}
-		fmt.Printf("%s", execPodSimple(client, node.Name,
+		fmt.Printf("%s", execPodSimple(client, node.Name, namespace,
 			fmt.Sprintf(`curl --silent --unix-socket /run/traceloop.socket 'http://localhost/close-by-name?name=%s' ; echo`, args[0])))
 	}
 
