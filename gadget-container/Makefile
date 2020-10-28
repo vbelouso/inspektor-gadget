@@ -1,5 +1,6 @@
 IMAGE_TAG=$(shell ../tools/image-tag)
 IMAGE_BRANCH_TAG=$(shell ../tools/image-tag branch)
+DOCKER=docker
 
 MINIKUBE ?= minikube
 CONTAINER_REPO ?= docker.io/kinvolk/gadget
@@ -42,20 +43,20 @@ runchookslib:
 
 .PHONY: build
 build: gadget-container-deps
-	docker build -t $(CONTAINER_REPO):$(IMAGE_TAG) -f gadget.Dockerfile .
-	docker tag $(CONTAINER_REPO):$(IMAGE_TAG) $(CONTAINER_REPO):$(IMAGE_BRANCH_TAG)
+	$(DOCKER) build -t $(CONTAINER_REPO):$(IMAGE_TAG) -f gadget.Dockerfile .
+	$(DOCKER) tag $(CONTAINER_REPO):$(IMAGE_TAG) $(CONTAINER_REPO):$(IMAGE_BRANCH_TAG)
 
 .PHONY: push
 push:
-	docker push $(CONTAINER_REPO):$(IMAGE_TAG)
-	docker push $(CONTAINER_REPO):$(IMAGE_BRANCH_TAG)
+	$(DOCKER) push $(CONTAINER_REPO):$(IMAGE_TAG)
+	$(DOCKER) push $(CONTAINER_REPO):$(IMAGE_BRANCH_TAG)
 
 # minikube related
 minikube: docker-gadget/minikube-build docker-gadget/minikube-install
 
 docker-gadget/minikube-build:
 	cp ../../traceloop/traceloop ./bin/
-	eval $(shell $(MINIKUBE) docker-env | grep =) ; docker build -t $(CONTAINER_REPO):minikube -f gadget-from-local-bin.Dockerfile .
+	eval $(shell $(MINIKUBE) docker-env | grep =) ; $(DOCKER) build -t $(CONTAINER_REPO):minikube -f gadget-from-local-bin.Dockerfile .
 	mkdir -p ./bin
 	rm -f ./bin/traceloop
 
