@@ -129,16 +129,18 @@ if [ "$RUNC_HOOK_MODE" = "podinformer" ] ; then
   POD_INFORMER_PARAM="-podinformer"
 fi
 
+UNIX_SOCKET_DIR=${INSPEKTOR_GADGET_UNIX_SOCKET_DIR:/run}
+
 echo "Starting the Gadget Tracer Manager in the background..."
-rm -f /run/gadgettracermanager.socket
-/bin/gadgettracermanager -serve $POD_INFORMER_PARAM &
+rm -f ${UNIX_SOCKET_DIR}/gadgettracermanager.socket
+/bin/gadgettracermanager -socketfile ${UNIX_SOCKET_DIR}/gadgettracermanager.socket -serve $POD_INFORMER_PARAM &
 
 if [ "$INSPEKTOR_GADGET_OPTION_TRACELOOP" = "true" ] ; then
-  rm -f /run/traceloop.socket
+  rm -f ${UNIX_SOCKET_DIR}/traceloop.socket
   if [ "$INSPEKTOR_GADGET_OPTION_TRACELOOP_LOGLEVEL" != "" ] ; then
-    exec /bin/traceloop -log "$INSPEKTOR_GADGET_OPTION_TRACELOOP_LOGLEVEL" k8s
+    exec /bin/traceloop -socketfile ${UNIX_SOCKET_DIR}/traceloop.socket -log "$INSPEKTOR_GADGET_OPTION_TRACELOOP_LOGLEVEL" k8s
   else
-    exec /bin/traceloop k8s
+    exec /bin/traceloop -socketfile ${UNIX_SOCKET_DIR}/traceloop.socket k8s
   fi
 fi
 
