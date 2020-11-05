@@ -59,7 +59,7 @@ func init() {
 	networkPolicyCmd.AddCommand(networkPolicyMonitorCmd)
 	networkPolicyMonitorCmd.PersistentFlags().StringVarP(&outputFileName, "output", "", "-", "File name output")
 	networkPolicyMonitorCmd.PersistentFlags().StringVarP(&namespaces, "namespaces", "", "default", "Comma-separated list of namespaces to monitor")
-	networkPolicyMonitorCmd.PersistentFlags().StringVarP(&namespace, "namespace", "ns", "gadget-tracing", "Namespace where gadget is deployed (gadget-tracing)")
+	networkPolicyMonitorCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "gadget-tracing", "Namespace where gadget is deployed (gadget-tracing)")
 
 	networkPolicyCmd.AddCommand(networkPolicyReportCmd)
 	networkPolicyReportCmd.PersistentFlags().StringVarP(&inputFileName, "input", "", "-", "File name input")

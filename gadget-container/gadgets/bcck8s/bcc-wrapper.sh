@@ -69,6 +69,7 @@ esac
 done
 
 GADGETTRACERMANAGER=/bin/gadgettracermanager
+UNIX_SOCKET_DIR=${INSPEKTOR_GADGET_UNIX_SOCKET_DIR:-/run}
 BPFDIR="${BPFDIR:-/sys/fs/bpf}"
 
 if [ "$FLATCAREDGEONLY" = "true" ] ; then
@@ -82,11 +83,11 @@ if [ "$FLATCAREDGEONLY" = "true" ] ; then
   fi
 fi
 
-PIDFILE=/run/bcc-wrapper-$TRACERID.pid
+PIDFILE=/var/run/gadget/bcc-wrapper-$TRACERID.pid
 
 if [ "$STOP" = "true" ] ; then
   if [ "$MANAGER" = "true" ] ; then
-    $GADGETTRACERMANAGER -call remove-tracer -tracerid "$TRACERID" || true
+    $GADGETTRACERMANAGER -socketfile ${UNIX_SOCKET_DIR}/gadgettracermanager.socket -call remove-tracer -tracerid "$TRACERID" || true
   fi
   if [ -e "$PIDFILE" ] ; then
     kill -SIGINT "$(cat $PIDFILE)" || true
@@ -128,7 +129,7 @@ export TERM=xterm-256color
 export PYTHONUNBUFFERED=TRUE
 
 if [ "$MANAGER" = "true" ] ; then
-  $GADGETTRACERMANAGER -call add-tracer -tracerid "$TRACERID" -label "$LABEL" -namespace "$NAMESPACE" -podname "$PODNAME" -containername "$CONTAINERNAME" > /dev/null
+  $GADGETTRACERMANAGER -socketfile ${UNIX_SOCKET_DIR}/gadgettracermanager.socket -call add-tracer -tracerid "$TRACERID" -label "$LABEL" -namespace "$NAMESPACE" -podname "$PODNAME" -containername "$CONTAINERNAME" > /dev/null
   # use the --cgroupmap option if the system is using cgroup-v2
   MODE="--mntnsmap"
   MAPPATH=$BPFDIR/gadget/mntnsset-$TRACERID

@@ -35,6 +35,7 @@ func execPodCapture(client *kubernetes.Clientset, node string, namespace string,
 }
 
 func execPod(client *kubernetes.Clientset, node string, namespace string, podCmd string, cmdStdout io.Writer, cmdStderr io.Writer) error {
+  fmt.Printf("Running command: %s\n", podCmd)
 	var listOptions = metaV1.ListOptions{
 		LabelSelector: "k8s-app=gadget",
 		FieldSelector: "spec.nodeName=" + node + ",status.phase=Running",

@@ -43,7 +43,8 @@ runchookslib:
 
 .PHONY: build
 build: gadget-container-deps
-	$(DOCKER) build -t $(CONTAINER_REPO):$(IMAGE_TAG) -f gadget.Dockerfile .
+	# $(DOCKER) build -t $(CONTAINER_REPO):$(IMAGE_TAG) -f gadget.Dockerfile .
+	$(DOCKER) build -t $(CONTAINER_REPO):$(IMAGE_TAG) -f gadget.Dockerfile.fedora .
 	$(DOCKER) tag $(CONTAINER_REPO):$(IMAGE_TAG) $(CONTAINER_REPO):$(IMAGE_BRANCH_TAG)
 
 .PHONY: push
