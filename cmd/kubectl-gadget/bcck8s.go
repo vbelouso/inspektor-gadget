@@ -314,6 +314,20 @@ func bccCmd(subCommand, bccScript string) func(*cobra.Command, []string) {
 			if nodeParam != "" && node.Name != nodeParam {
 				continue
 			}
+
+      var ready = true
+      for _, cond := range node.Status.Conditions {
+        if cond.Type == "Ready" {
+          if cond.Status != "True" {
+            ready = false
+          }
+        }
+      }
+      if !ready {
+        fmt.Printf("Node %s is not ready: skipping !\n", node.Name)
+        continue
+      }
+
 			fmt.Printf(" %d = %s", i, node.Name)
 			go func(nodeName string, index int) {
 				cmd := fmt.Sprintf("exec /opt/bcck8s/bcc-wrapper.sh --tracerid %s --gadget %s %s %s %s %s -- %s",
