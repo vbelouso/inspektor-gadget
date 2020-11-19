@@ -1,0 +1,133 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gadget-tracing
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gadget
+  namespace: gadget-tracing
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: gadget
+subjects:
+- kind: ServiceAccount
+  name: gadget
+  namespace: gadget-tracing
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: gadget
+  namespace: gadget-tracing
+  labels:
+    k8s-app: gadget
+spec:
+  selector:
+    matchLabels:
+      k8s-app: gadget
+  template:
+    metadata:
+      labels:
+        k8s-app: gadget
+      annotations:
+        inspektor-gadget.kinvolk.io/option-traceloop: "false"
+        inspektor-gadget.kinvolk.io/option-runc-hooks: "auto"
+    spec:
+      serviceAccount: gadget
+      hostPID: true
+      hostNetwork: true
+      containers:
+      - name: gadget
+        image: quay.io/xymox/gadget:latest
+        imagePullPolicy: Always
+        lifecycle:
+          preStop:
+            exec:
+              command:
+                - "/cleanup.sh"
+        env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: GADGET_POD_UID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: TRACELOOP_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: TRACELOOP_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: TRACELOOP_POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: TRACELOOP_IMAGE
+            value: docker.io/kinvolk/gadget:latest
+          - name: INSPEKTOR_GADGET_VERSION
+            value: v0.2.0-16-g165ae6e-dirty
+          - name: INSPEKTOR_GADGET_OPTION_TRACELOOP
+            value: "false"
+          - name: INSPEKTOR_GADGET_OPTION_TRACELOOP_LOGLEVEL
+            value: "info,json"
+          - name: INSPEKTOR_GADGET_OPTION_RUNC_HOOKS_MODE
+            value: "auto"
+          - name: INSPEKTOR_GADGET_UNIX_SOCKET_DIR
+            value: "/var/run/gadget"
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: host
+          mountPath: /host
+        - name: crio-sock
+          mountPath: /run/crio/crio.sock
+        - name: varrun
+          mountPath: /var/run/gadget
+          mountPropagation: Bidirectional
+        - name: modules
+          mountPath: /lib/modules
+        - name: debugfs
+          mountPath: /sys/kernel/debug
+        - name: cgroup
+          mountPath: /sys/fs/cgroup
+        - name: bpffs
+          mountPath: /sys/fs/bpf
+        - name: localtime
+          mountPath: /etc/localtime
+      volumes:
+      - name: host
+        hostPath:
+          path: /
+      - name: crio-sock
+        hostPath:
+          path: /run/crio/crio.sock
+      - name: varrun
+        hostPath:
+          path: /var/run/gadget
+      - name: cgroup
+        hostPath:
+          path: /sys/fs/cgroup
+      - name: modules
+        hostPath:
+          path: /lib/modules
+      - name: bpffs
+        hostPath:
+          path: /sys/fs/bpf
+      - name: debugfs
+        hostPath:
+          path: /sys/kernel/debug
+      - name: localtime
+        hostPath:
+          path: /etc/localtime
