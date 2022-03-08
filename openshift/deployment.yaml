@@ -45,8 +45,8 @@ spec:
     spec:
       tolerations:
       - effect: NoSchedule
-         key: node-role.kubernetes.io/master
-         operator: Exists
+        key: node-role.kubernetes.io/master
+        operator: Exists
       serviceAccount: gadget
       hostPID: true
       hostNetwork: true
